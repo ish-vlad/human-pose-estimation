@@ -3,50 +3,14 @@ import glob
 import tqdm
 import json
 import imageio
-import numpy as np
 
 from scipy.io import loadmat
 from tqdm.autonotebook import tqdm
 
+from joint_helper import COCO_KEYPOINTS, COCO_SKELETON, joints_mapping
+
 DATASET_DIR = '/home/ishvlad/datasets/LV-MHP-v2/'
 INNER_DIR = 'val'
-
-COCO_KEYPOINTS = [
-    "nose","left_eye","right_eye","left_ear","right_ear",
-    "left_shoulder","right_shoulder","left_elbow","right_elbow",
-    "left_wrist","right_wrist","left_hip","right_hip",
-    "left_knee","right_knee","left_ankle","right_ankle"
-]
-COCO_SKELETON = [
-    [16,14],[14,12],[17,15],[15,13],[12,13],[6,12],[7,13],[6,7],
-    [6,8],[7,9],[8,10],[9,11],[2,3],[1,2],[1,3],[2,4],[3,5],[4,6],[5,7]
-]
-
-
-def joints_mapping(joints):
-    # preprocess joints: adapt visibility flag
-    mpii_joints = [[x, y, 2] if v == 0 and x > 0 and y > 0 else [0, 0, 0] for x, y, v in joints]
-
-    coco_joints = np.zeros((len(COCO_KEYPOINTS), 3))
-
-    # HEAD (5): nose, eyes, ears (ALL ZEROS)
-    # BODY (7): thorax/upper-neck, shoulders, elbows, wrists
-    coco_joints[5:11:2] = mpii_joints[13:16] # left
-    coco_joints[6:12:2] = mpii_joints[10:13][::-1] # right
-    
-    # LEGS (6): hips, knees, ankles
-    coco_joints[11:17:2] = mpii_joints[3:6] # left
-    coco_joints[12:18:2] = mpii_joints[:3][::-1] # right
-    
-    # transfer instance bbox
-    person_bbox = np.array(mpii_joints[18][:2] + mpii_joints[19][:2])
-    person_bbox[2:] -= mpii_joints[18][:2]
-    
-    # transfer face bbox
-    face_bbox = np.array(mpii_joints[16][:2] + mpii_joints[17][:2])
-    face_bbox[2:] -= mpii_joints[16][:2]
-
-    return coco_joints, person_bbox, face_bbox
 
 
 def main():
@@ -81,11 +45,10 @@ def main():
     }
     
     person_id = 0
-    for path in tqdm(glob.glob(os.path.join(DATASET_DIR, INNER_DIR, 'images/*.jpg'))[:100]):
+    for path in tqdm(glob.glob(os.path.join(DATASET_DIR, INNER_DIR, 'images/*.jpg'))):
         name = path.split('/')[-1]
         image_id = int(name.split('.')[0])
 
-        # TODO: do not need to read the whole image, size only
         try:
             img = imageio.imread(path)
         except (SyntaxError, ValueError):
